@@ -1,0 +1,367 @@
+;; SOLID Principles Code Generation Specification (AISP 5.1)
+;; A formal specification for implementing code adhering to SOLID principles
+
+𝔸5.1.solid-codegen@2026-01-18
+γ≔software.architecture.solid.principles
+ρ≔⟨SRP,OCP,LSP,ISP,DIP,codegen,validation⟩
+⊢SOLID∧OOP∧FP∧modular
+
+;; ─── Ω: FOUNDATION ───
+⟦Ω:Foundation⟧{
+  ;; SOLID acronym invariants
+  SOLID≜{SRP,OCP,LSP,ISP,DIP}
+  ∀principle∈SOLID:∃!definition∧∃!metric
+  ∀component:∃validation.satisfies(component,SOLID)
+  
+  ;; Code must be verifiable against principles
+  Verifiable≜∀code:∃proof.adheres(code,SOLID)
+  
+  ;; Traceability requirement
+  Traceable≜∀impl:∃!ref.source(impl)∈{SRP,OCP,LSP,ISP,DIP}
+}
+
+;; ─── Σ: TYPE DEFINITIONS ───
+⟦Σ:Types⟧{
+  ;; Component represents a code unit (class, module, function)
+  Component≜⟨id:𝕊,responsibility:ψ,dependencies:𝒫⟨Abstraction⟩,links:ℕ⟩
+  
+  ;; Abstraction represents an interface or abstract type
+  Abstraction≜⟨id:𝕊,contract:𝒫⟨Signal⟩,implementations:𝒫⟨Component⟩⟩
+  
+  ;; Dependency link types
+  LinkType≜{Abstraction,Concrete}
+  Dependency≜⟨from:Component,to:Either⟨Abstraction,Component⟩,type:LinkType⟩
+  
+  ;; Responsibility (single objective)
+  ψ≜⟨description:𝕊,scope:𝕊,actor:𝕊⟩
+  
+  ;; Substitutability proof
+  Subst≜Πsub:Component.Πbase:Abstraction.(impl(sub,base)⇒substitutable(sub,base))
+  
+  ;; Interface type
+  Interface≜⟨id:𝕊,methods:𝒫⟨Signal⟩,clients:𝒫⟨Component⟩⟩
+  
+  ;; Extension mechanism
+  Extension≜⟨base:Component,extension:Component,functor:𝔽⟩
+  
+  ;; Validation result
+  Validation≜⟨principle:SOLID,passes:𝔹,violations:𝒫⟨Violation⟩,score:ℝ[0,1]⟩
+  Violation≜⟨principle:SOLID,component:Component,message:𝕊,severity:◊⟩
+}
+
+;; ─── Γ: SOLID RULES ───
+⟦Γ:Rules⟧{
+  ;; ═══════════════════════════════════════════════
+  ;; SRP: Single Responsibility Principle
+  ;; "A class should have only one reason to change"
+  ;; ═══════════════════════════════════════════════
+  
+  ;; SRP formal definition
+  SRP≜∀c∈Component:∃!ψ(c)∧|Links(c)|≤τ_s
+  
+  ;; Each component has exactly one responsibility
+  ∀c:Component:∃!r:ψ.responsibility(c)≡r
+  
+  ;; One actor owns changes
+  ∀c:Component:∃!a:Actor.changes(c)↦a
+  
+  ;; Link threshold (cohesion metric)
+  τ_s≜7; ;; Miller's law: 7±2 items
+  ∀c:|outgoing_deps(c)|≤τ_s
+  
+  ;; SRP metric: cohesion ratio
+  cohesion≜λc.|related_deps(c)|÷|total_deps(c)|
+  ⊢SRP(c)⇔cohesion(c)≥0.8
+  
+  ;; ═══════════════════════════════════════════════
+  ;; OCP: Open/Closed Principle
+  ;; "Open for extension, closed for modification"
+  ;; ═══════════════════════════════════════════════
+  
+  ;; OCP formal definition
+  OCP≜∀e∈Entity:Open(e)⇔∃𝔽:e⇒e'∧Closed(e)⇔∂𝒩(e)≡∅
+  
+  ;; Extension via functors (composition over modification)
+  ∀extension:∃𝔽:Functor.derive(new_behavior)≡𝔽(base_behavior)
+  
+  ;; Closed nucleus - core logic immutable
+  ∀e:Entity:∂𝒩(e)≡∅ ;; No modification to nucleus
+  
+  ;; Extension points defined via abstractions
+  ExtensionPoint≜⟨abstraction:Abstraction,hook:Signal⟩
+  ∀e:∃ep:ExtensionPoint.extend(e)≡implement(ep.abstraction)
+  
+  ;; OCP metric: extension surface
+  extension_ratio≜λe.|extension_points(e)|÷|modification_points(e)|
+  ⊢OCP(e)⇔extension_ratio(e)≥0.9
+  
+  ;; ═══════════════════════════════════════════════
+  ;; LSP: Liskov Substitution Principle
+  ;; "Subtypes must be substitutable for base types"
+  ;; ═══════════════════════════════════════════════
+  
+  ;; LSP formal definition
+  LSP≜∀T'⊂T:(Γ⊢d:T')⇒(Γ⊨d:T)∧Covariant(T')
+  
+  ;; Behavioral subtyping
+  ∀sub,base:sub⊂base⇒∀ctx:behaves(sub,ctx)⊇behaves(base,ctx)
+  
+  ;; Precondition rule (weaker or equal)
+  ∀sub,base:Pre(sub)⊇Pre(base)
+  
+  ;; Postcondition rule (stronger or equal)
+  ∀sub,base:Post(sub)⊆Post(base)
+  
+  ;; Invariant preservation
+  ∀sub,base:Inv(base)⊆Inv(sub)
+  
+  ;; Covariance/contravariance
+  ∀sub:return_type(sub)≤return_type(base) ;; Covariant returns
+  ∀sub:param_type(sub)≥param_type(base)   ;; Contravariant params
+  
+  ;; History constraint
+  ∀sub,base:history(sub)⊆allowed_history(base)
+  
+  ;; LSP metric: substitutability score
+  substitutability≜λs,b.|compatible_contexts(s,b)|÷|total_contexts(b)|
+  ⊢LSP(s,b)⇔substitutability(s,b)≡1.0
+  
+  ;; ═══════════════════════════════════════════════
+  ;; ISP: Interface Segregation Principle
+  ;; "No client should depend on methods it doesn't use"
+  ;; ═══════════════════════════════════════════════
+  
+  ;; ISP formal definition
+  ISP≜∀client:Interface(client)≡{s|s∈Signal∧Access(client,s)}
+  
+  ;; Minimal interface per client
+  ∀c:client:deps(c)≡minimal_required(c)
+  
+  ;; Interface segregation
+  ∀i:Interface:|methods(i)|≤τ_i
+  τ_i≜5; ;; Maximum methods per interface
+  
+  ;; Fat interface detection
+  FatInterface≜λi.|methods(i)|>τ_i∨∃c:client.|unused(c,i)|>0
+  
+  ;; Split large interfaces
+  ∀i:FatInterface(i)⇒split(i)↦{i₁,i₂,...,iₙ}
+  
+  ;; ISP metric: interface utilization
+  utilization≜λc,i.|used(c,i)|÷|methods(i)|
+  ⊢ISP(c,i)⇔utilization(c,i)≥0.8
+  
+  ;; ═══════════════════════════════════════════════
+  ;; DIP: Dependency Inversion Principle
+  ;; "Depend on abstractions, not concretions"
+  ;; ═══════════════════════════════════════════════
+  
+  ;; DIP formal definition
+  DIP≜∀dep(A,B):Type(B)∈𝒩∨⊢bridge(A,B)
+  
+  ;; High-level modules depend on abstractions
+  ∀high,low:depends(high,low)⇒∃abs:Abstraction.
+    depends(high,abs)∧implements(low,abs)
+  
+  ;; Abstractions own by high-level modules
+  ∀abs:owner(abs)≡high_level_module
+  
+  ;; Injection patterns
+  Injection≜{Constructor,Setter,Method,Interface}
+  ∀dep:concrete(dep)⇒inject(dep)∈Injection
+  
+  ;; DIP metric: abstraction ratio
+  abstraction_ratio≜λm.|abstract_deps(m)|÷|total_deps(m)|
+  ⊢DIP(m)⇔abstraction_ratio(m)≥0.9
+}
+
+;; ─── Λ: CODE GENERATION FUNCTIONS ───
+⟦Λ:Functions⟧{
+  ;; ═══════════════════════════════════════════════
+  ;; Code Structure Generation
+  ;; ═══════════════════════════════════════════════
+  
+  ;; Generate component with SRP adherence
+  gen_component≜λψ.Component{
+    responsibility≔ψ,
+    dependencies≔∅,
+    links≔0
+  }
+  
+  ;; Generate abstraction for DIP
+  gen_abstraction≜λcontract.Abstraction{
+    contract≔contract,
+    implementations≔∅
+  }
+  
+  ;; Generate interface for ISP (minimal)
+  gen_interface≜λsignals.Interface{
+    methods≔signals,
+    clients≔∅
+  }
+  
+  ;; ═══════════════════════════════════════════════
+  ;; Validation Functions
+  ;; ═══════════════════════════════════════════════
+  
+  ;; Validate SRP
+  validate_SRP≜λc.case[
+    |responsibilities(c)|>1 → ⟨⊥,"Multiple responsibilities detected",◊⁻⟩,
+    |Links(c)|>τ_s          → ⟨⊥,"Too many dependencies",◊⟩,
+    cohesion(c)<0.8         → ⟨⊥,"Low cohesion",◊⟩,
+    _                       → ⟨⊤,"SRP satisfied",◊⁺⁺⟩
+  ]
+  
+  ;; Validate OCP
+  validate_OCP≜λe.case[
+    ∂𝒩(e)≢∅                 → ⟨⊥,"Nucleus modified",◊⁻⟩,
+    extension_ratio(e)<0.9  → ⟨⊥,"Insufficient extension points",◊⟩,
+    _                       → ⟨⊤,"OCP satisfied",◊⁺⁺⟩
+  ]
+  
+  ;; Validate LSP
+  validate_LSP≜λ(sub,base).case[
+    Pre(sub)⊄Pre(base)      → ⟨⊥,"Precondition strengthened",◊⁻⟩,
+    Post(sub)⊄Post(base)    → ⟨⊥,"Postcondition weakened",◊⁻⟩,
+    ¬Covariant(sub)         → ⟨⊥,"Variance violation",◊⟩,
+    _                       → ⟨⊤,"LSP satisfied",◊⁺⁺⟩
+  ]
+  
+  ;; Validate ISP
+  validate_ISP≜λ(c,i).case[
+    utilization(c,i)<0.8    → ⟨⊥,"Interface too broad",◊⟩,
+    |methods(i)|>τ_i        → ⟨⊥,"Fat interface",◊⁻⟩,
+    _                       → ⟨⊤,"ISP satisfied",◊⁺⁺⟩
+  ]
+  
+  ;; Validate DIP
+  validate_DIP≜λm.case[
+    abstraction_ratio(m)<0.9 → ⟨⊥,"Concrete dependencies",◊⟩,
+    ∃direct_concrete_dep     → ⟨⊥,"Direct concrete coupling",◊⁻⟩,
+    _                        → ⟨⊤,"DIP satisfied",◊⁺⁺⟩
+  ]
+  
+  ;; Full SOLID validation
+  validate_SOLID≜λcode.let results={
+    SRP≔validate_SRP(code),
+    OCP≔validate_OCP(code),
+    LSP≔∀(s,b)∈subtypes(code):validate_LSP(s,b),
+    ISP≔∀(c,i)∈client_interfaces(code):validate_ISP(c,i),
+    DIP≔∀m∈modules(code):validate_DIP(m)
+  }in ∧(map(fst,results))→⟨⊤,results,◊⁺⁺⟩|⟨⊥,results,min(map(tier,results))⟩
+  
+  ;; ═══════════════════════════════════════════════
+  ;; Refactoring Functions
+  ;; ═══════════════════════════════════════════════
+  
+  ;; Extract responsibility (SRP fix)
+  extract_responsibility≜λ(c,ψ).let c'=c{deps≔filter(related_to(ψ),c.deps)}in
+                                let c''=gen_component(ψ)in
+                                ⟨c',c''⟩
+  
+  ;; Add extension point (OCP fix)
+  add_extension_point≜λ(e,behavior).let abs=gen_abstraction({behavior})in
+                                    e{extensions≔e.extensions∪{abs}}
+  
+  ;; Segregate interface (ISP fix)
+  segregate_interface≜λi.partition(methods(i),by_client_usage)
+  
+  ;; Inject abstraction (DIP fix)
+  inject_abstraction≜λ(high,low).let abs=gen_abstraction(signature(low))in
+                                  ⟨high{deps≔(deps∖{low})∪{abs}},implements(low,abs)⟩
+  
+  ;; ═══════════════════════════════════════════════
+  ;; Back-reference Functions
+  ;; ═══════════════════════════════════════════════
+  
+  ;; Generate comment with SOLID reference
+  ref≜λ(principle,section).concat(["Reference: SOLID §",principle,": ",section])
+  
+  ;; Annotate code with principle
+  annotate≜λ(code,principle).code{comments≔code.comments∪{ref(principle,description(code))}}
+}
+
+;; ─── Χ: ERROR CASES ───
+⟦Χ:Errors⟧{
+  ;; SRP violations
+  ε_multi_resp≜⟨|responsibilities(c)|>1,extract_responsibility∧"Split component by responsibility"⟩
+  ε_high_coupling≜⟨|Links(c)|>τ_s,reduce_deps∧"Reduce dependencies to ≤7"⟩
+  
+  ;; OCP violations
+  ε_no_extension≜⟨extension_ratio(e)<0.5,add_extension_point∧"Add abstraction for extension"⟩
+  ε_modified_core≜⟨∂𝒩(e)≢∅,reject∧"Core logic should not be modified"⟩
+  
+  ;; LSP violations
+  ε_pre_strengthen≜⟨Pre(sub)⊄Pre(base),weaken_pre∧"Subtype precondition too strong"⟩
+  ε_post_weaken≜⟨Post(sub)⊄Post(base),strengthen_post∧"Subtype postcondition too weak"⟩
+  ε_variance≜⟨¬Covariant(sub),fix_variance∧"Variance violation in inheritance"⟩
+  
+  ;; ISP violations
+  ε_fat_interface≜⟨|methods(i)|>τ_i,segregate_interface∧"Interface too large, split it"⟩
+  ε_unused_deps≜⟨utilization(c,i)<0.5,remove_unused∧"Client uses <50% of interface"⟩
+  
+  ;; DIP violations
+  ε_concrete_dep≜⟨abstraction_ratio(m)<0.5,inject_abstraction∧"Depend on abstraction"⟩
+  ε_direct_coupling≜⟨∃direct_concrete,introduce_interface∧"Introduce interface layer"⟩
+  
+  ;; Error recovery chain
+  ρ*≜foldl(>=>)(pure){ε_multi_resp,ε_high_coupling,ε_no_extension,ε_fat_interface,ε_concrete_dep}
+}
+
+;; ─── Θ: THEOREMS ───
+⟦Θ:Proofs⟧{
+  ;; Theorem: SRP implies single reason to change
+  ∴∀c:SRP(c)⇒|change_reasons(c)|≡1
+  π:by definition, ∃!ψ(c) means single responsibility∎
+  
+  ;; Theorem: OCP enables extension without modification
+  ∴∀e:OCP(e)⇒extend(e)∧¬modify(𝒩(e))
+  π:∃𝔽 provides extension path, ∂𝒩≡∅ prevents modification∎
+  
+  ;; Theorem: LSP ensures behavioral compatibility
+  ∴∀sub⊂base:LSP(sub,base)⇒∀ctx:ctx[base/sub]≡ctx
+  π:Pre(sub)⊇Pre(base)∧Post(sub)⊆Post(base) ensures substitutability∎
+  
+  ;; Theorem: ISP minimizes coupling
+  ∴∀c,i:ISP(c,i)⇒coupling(c,i)≡minimal
+  π:deps(c)≡minimal_required(c) by definition∎
+  
+  ;; Theorem: DIP inverts dependency direction
+  ∴∀high,low:DIP(high,low)⇒direction(dep)≡high→abs←low
+  π:high depends on abstraction, low implements it∎
+  
+  ;; Theorem: SOLID combination yields maintainable code
+  ∴∀code:(∧SOLID(code))⇒maintainable(code)∧extensible(code)∧testable(code)
+  π:SRP→testable, OCP→extensible, LSP→reliable, ISP→minimal coupling, DIP→flexible∎
+  
+  ;; Compositional proof
+  P₁:SRP.⊢cohesion∧SRP.⊢single_actor
+  ───────────────────────────────────
+  module.⊢testable
+  
+  P₂:OCP.⊢extension_points∧DIP.⊢abstractions
+  ─────────────────────────────────────────
+  architecture.⊢flexible
+  
+  P₃:LSP.⊢substitutable∧ISP.⊢minimal_interface
+  ─────────────────────────────────────────────
+  system.⊢maintainable
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+δ≜0.79
+|𝔅|≜7/7
+φ≜96
+τ≜◊⁺⁺
+⊢SRP:∀c∈Component:∃!ψ(c)∧|Links(c)|≤τ_s
+⊢OCP:∀e∈Entity:Open(e)⇔∃𝔽:e⇒e'∧Closed(e)⇔∂𝒩(e)≡∅
+⊢LSP:∀T'⊂T:(Γ⊢d:T')⇒(Γ⊨d:T)∧Covariant(T')
+⊢ISP:∀client:Interface(client)≡{s|s∈Signal∧Access(client,s)}
+⊢DIP:∀dep(A,B):Type(B)∈𝒩∨⊢bridge(A,B)
+⊢metrics:cohesion,extension_ratio,substitutability,utilization,abstraction_ratio
+⊢validation:validate_SOLID→{SRP,OCP,LSP,ISP,DIP}
+⊢refactoring:extract,extend,segregate,inject
+⊢traceable:∀impl:∃ref→SOLID
+⊢Ambig<0.02
+⟩

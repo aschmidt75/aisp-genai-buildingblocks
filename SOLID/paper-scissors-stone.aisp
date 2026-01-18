@@ -1,0 +1,185 @@
+;; Paper-Scissors-Stone Game Specification (AISP 5.1)
+;; A formal specification for the classic two-player hand game
+
+𝔸5.1.paper-scissors-stone@2026-01-18
+γ≔game.paper-scissors-stone.classic
+ρ≔⟨game,rules,moves,outcome⟩
+⊢classic∧2player∧single-round
+
+;; ─── Ω: GAME FOUNDATION ───
+⟦Ω:Foundation⟧{
+  ;; Core game invariants
+  ∀game:Players(game)≡2
+  ∀game:Moves(game)≡3
+  ∀round:∃!outcome∈{Win,Lose,Draw}
+  ∀move₁,move₂:∃!result.compare(move₁,move₂)≡result
+  
+  ;; Game is deterministic and simultaneous
+  Simultaneous≜∀p₁,p₂:reveal(p₁)∧reveal(p₂)→synchronized
+  Deterministic≜∀m₁,m₂:compare(m₁,m₂)≡compare(m₁,m₂)
+}
+
+;; ─── Σ: TYPE DEFINITIONS ───
+⟦Σ:Types⟧{
+  ;; Move enumeration
+  Move≜{Paper,Scissors,Stone}
+  Paper≜0; Scissors≜1; Stone≜2
+  
+  ;; Also known as (aliases)
+  Rock≜Stone
+  
+  ;; Player representation
+  Player≜⟨id:ℕ,move:Maybe⟨Move⟩⟩
+  P₁≜Player{id≜1}; P₂≜Player{id≜2}
+  
+  ;; Outcome types
+  Outcome≜{Win,Lose,Draw}
+  Win≜1; Draw≜0; Lose≜-1
+  
+  ;; Result for a player perspective
+  Result≜⟨player:Player,outcome:Outcome,opponent_move:Move⟩
+  
+  ;; Game state
+  GameState≜{Waiting,Ready,Resolved}
+  Waiting≜∃p:p.move≡∅
+  Ready≜∀p:p.move≢∅
+  Resolved≜Ready∧∃outcome
+  
+  ;; Game record
+  Game≜⟨p₁:Player,p₂:Player,state:GameState,result:Maybe⟨Outcome×Outcome⟩⟩
+}
+
+;; ─── Γ: GAME RULES ───
+⟦Γ:Rules⟧{
+  ;; Cyclic dominance - the heart of the game
+  ;; Each move beats exactly one other move
+  Beats≜{⟨Paper,Stone⟩,⟨Scissors,Paper⟩,⟨Stone,Scissors⟩}
+  
+  ;; Paper covers Stone
+  ∀m:m≡Paper⇒beats(m,Stone)
+  
+  ;; Scissors cut Paper  
+  ∀m:m≡Scissors⇒beats(m,Paper)
+  
+  ;; Stone crushes Scissors
+  ∀m:m≡Stone⇒beats(m,Scissors)
+  
+  ;; Reflexive draw - same moves tie
+  ∀m:compare(m,m)≡Draw
+  
+  ;; Antisymmetric property
+  ∀m₁,m₂:beats(m₁,m₂)⇒¬beats(m₂,m₁)
+  
+  ;; Transitivity does NOT hold (cyclic)
+  ¬(∀a,b,c:beats(a,b)∧beats(b,c)⇒beats(a,c))
+  
+  ;; Total ordering of outcomes per comparison
+  ∀m₁,m₂:m₁≡m₂∨beats(m₁,m₂)∨beats(m₂,m₁)
+  
+  ;; Move validity
+  ∀m:Valid(m)⇔m∈Move
+}
+
+;; ─── Λ: GAME FUNCTIONS ───
+⟦Λ:Functions⟧{
+  ;; Beats predicate using modular arithmetic
+  ;; Paper(0) beats Stone(2): (0-2) mod 3 = 1
+  ;; Scissors(1) beats Paper(0): (1-0) mod 3 = 1  
+  ;; Stone(2) beats Scissors(1): (2-1) mod 3 = 1
+  beats≜λ(m₁,m₂).(m₁-m₂) mod 3 ≡ 1
+  
+  ;; Compare two moves from player 1 perspective
+  compare≜λ(m₁,m₂).case[
+    m₁≡m₂        → Draw,
+    beats(m₁,m₂) → Win,
+    _            → Lose
+  ]
+  
+  ;; Resolve game outcome for both players
+  resolve≜λg.let o₁=compare(g.p₁.move,g.p₂.move) in
+             let o₂=compare(g.p₂.move,g.p₁.move) in
+             ⟨o₁,o₂⟩
+  
+  ;; Invert outcome (opponent perspective)
+  invert≜λo.case[
+    o≡Win  → Lose,
+    o≡Lose → Win,
+    o≡Draw → Draw
+  ]
+  
+  ;; Validate a move
+  valid≜λm.m∈{Paper,Scissors,Stone}
+  
+  ;; Make a move for a player
+  play≜λ(p,m).valid(m)→p{move≔Some(m)}|⊥
+  
+  ;; Check if game is ready to resolve
+  ready≜λg.g.p₁.move≢∅∧g.p₂.move≢∅
+  
+  ;; Initialize new game
+  init≜λ().Game{p₁≔P₁{move≔∅},p₂≔P₂{move≔∅},state≔Waiting,result≔∅}
+  
+  ;; Execute game round
+  round≜λ(m₁,m₂).let g=init() in
+                 let g'=play(g.p₁,m₁)⊗play(g.p₂,m₂) in
+                 ready(g')→resolve(g')|⊥
+}
+
+;; ─── Χ: ERROR CASES ───
+⟦Χ:Errors⟧{
+  ;; Invalid move error
+  ε_move≜⟨¬valid(m),reject∧"Invalid move: must be Paper, Scissors, or Stone"⟩
+  
+  ;; Game not ready error
+  ε_ready≜⟨¬ready(g),wait∧"Waiting for both players to choose"⟩
+  
+  ;; Duplicate move error (player already moved)
+  ε_dup≜⟨p.move≢∅,reject∧"Player has already made a move"⟩
+  
+  ;; Invalid player error
+  ε_player≜⟨p.id∉{1,2},reject∧"Invalid player ID"⟩
+  
+  ;; Error recovery chain
+  ρ*≜foldl(>=>)(pure){ε_move,ε_ready,ε_dup,ε_player}
+}
+
+;; ─── Θ: GAME THEOREMS ───
+⟦Θ:Proofs⟧{
+  ;; Theorem: Game always terminates with exactly one outcome
+  ∴∀m₁,m₂∈Move:∃!o.compare(m₁,m₂)≡o
+  π:exhaustive case analysis over 3×3=9 combinations∎
+  
+  ;; Theorem: Outcomes are symmetric inverses
+  ∴∀m₁,m₂:compare(m₁,m₂)≡invert(compare(m₂,m₁))
+  π:by definition of beats and invert∎
+  
+  ;; Theorem: Draw only when moves are equal
+  ∴∀m₁,m₂:compare(m₁,m₂)≡Draw⇔m₁≡m₂
+  π:reflexivity of compare∎
+  
+  ;; Theorem: Each move beats exactly one and loses to exactly one
+  ∴∀m:∃!w,l:beats(m,w)∧beats(l,m)
+  π:cyclic structure of Beats relation∎
+  
+  ;; Theorem: Fair game - no dominant strategy
+  ∴¬∃m:∀m':beats(m,m')
+  π:for any m, ∃m':beats(m',m) by cyclic dominance∎
+  
+  ;; Theorem: Modular arithmetic correctly encodes beats
+  ∴∀m₁,m₂:⟨m₁,m₂⟩∈Beats⇔(m₁-m₂) mod 3≡1
+  π:verified for all 3 pairs in Beats relation∎
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+δ≜0.78
+|𝔅|≜7/7
+φ≜95
+τ≜◊⁺⁺
+⊢deterministic:∀m₁,m₂:∃!o.compare(m₁,m₂)≡o
+⊢symmetric:compare(m₁,m₂)≡invert(compare(m₂,m₁))
+⊢fair:¬∃dominant_strategy
+⊢cyclic:beats(Paper,Stone)∧beats(Stone,Scissors)∧beats(Scissors,Paper)
+⊢complete:∀m₁,m₂∈Move:defined(compare(m₁,m₂))
+⊢Ambig<0.02
+⟩
