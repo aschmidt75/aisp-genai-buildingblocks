@@ -1,0 +1,2 @@
+R1:
+The system shall have a login mechanism using authentication styles like OAuth2, OIDC, that allows for Multi-Factor Authentication (MFA) and allow for basic Conditional Access mechanisms such as blocking IPs (e.g. per country) and time-based restriction (e.g. blocking access outside of office hours)
