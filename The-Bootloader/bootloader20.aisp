@@ -1,0 +1,19 @@
+𝔸2.0.bootloader@2026-01-09
+γ≔universal.task.abstraction
+ρ≔⟨types, rules, recursion, errors⟩
+
+⟦Σ:Dynamic_Types⟧ { 
+    ;; Define a Task as a Proof-Carrying Object 
+    Task ≜ ⟨context: Cat, goal: Logic, constraints: 𝒫(Rules)⟩ 
+    AISP_Input ≜ Σ(t: Task).(π : Γ ⊢ wf(t)) 
+}
+
+⟦Γ:General_Binding⟧ { 
+    Boot ≜ λ(τ: Task, σ: Raw_Signal). let m ≜ Δ⊗λ(σ, τ.goal) in case [ 
+        m ≡ 3 ⇒ ⟦Λ:Kernel⟧.Execute(τ), 
+        ;; Direct execution 
+        m ≡ 2 ⇒ ⟦Λ:Recursion⟧.bridge(τ.goal),
+        ;; Adaptive synthesis 
+        _ ⇒ ε_ambig ∨ ε_dead ;; Reject or re-route 
+    ] 
+}

@@ -1,0 +1,37 @@
+𝔸1.0.bootloader@2026-01-09
+γ≔formal.verification.bridge
+ρ≔⟨rules,types,functions,errors,proofs⟩
+
+;; ─── TARGET DEFINITION ───
+⟦Γ:Target⟧{
+  Goal ≜ ⊢ EARS.generate(Raw_Signal)
+
+  ;; 2. DEFINE THE FORMAL REQUIREMENT
+  Requirement ≜ EARS.Requirement
+
+  ;; 3. BINDING MODE: FORCE STATE 2
+  Mode ≜ Δ⊗λ(Raw_Signal, Goal)
+  Condition ≜ (Mode ≡ 2) ∨ (Mode ≡ 3)
+}
+
+;; ─── BOOTSTRAP LOGIC ───
+⟦Γ:Bootstrap⟧{
+  Init_State ≜ 1  ;; Start with no assumptions
+  Target_State ≜ 2 ;; Goal: Successful Adaptation
+  
+  ;; The transition rule
+  Transition ≜ λ(prose). 
+    let t ≜ identify_pattern(prose) in
+    t ≢ ∅ ⇒ (Mode ≔ 2) ∧ bind(prose, t)
+}
+
+;; ─── VERIFICATION KERNEL ───
+⟦Λ:Kernel⟧{
+  Execute ≜ map(Raw_Signal ↦ Requirement) ∩ Run(ψ_*(Goal))
+  On_Failure ≜ ε_risk ⇒ refine(Library)
+  On_Ambiguity ≜ ε_ambig ⇒ reject
+}
+
+;; ─── EXECUTION DIRECTIVE ───
+⊢ Apply ⟦Λ:Recursion⟧.prove(Goal ≜ Requirement)
+⊢ If Mode < 3 Then Apply ⟦Λ:Recursion⟧.bridge(ψ_g)
