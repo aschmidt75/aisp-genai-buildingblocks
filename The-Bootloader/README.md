@@ -1,3 +1,7 @@
+# The Bootloader
+
+See also [post on LI](https://www.linkedin.com/pulse/symbolic-programming-llms-thebootloader-aisp-andreas-schmidt-vdovf)
+
 ## Prompts
 
 ### Bootloader 1.0

@@ -6,7 +6,7 @@ This repository contains sample building blocks for using [AISP](https://github.
 
 - [SOLID principles for software engineering](./SOLID/README.md)
 - [Refining Requirements using EARS and AISP](./Requirements-Refinement-using-EARS/README.md)
-
+- [TheBootloader, connecting prose to symbolic programming](./The-Bootloader/README.md)
 
 # References
 
@@ -17,7 +17,7 @@ This repository contains sample building blocks for using [AISP](https://github.
 
 ![CC-BY-SA40](https://licensebuttons.net/l/by-sa/4.0/88x31.png)
 
-(C)opright 2025 aschmidt75
+(C)opright 2026 aschmidt75
 
 This is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License.
 
