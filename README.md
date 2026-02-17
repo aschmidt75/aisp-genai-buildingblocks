@@ -7,6 +7,7 @@ This repository contains sample building blocks for using [AISP](https://github.
 - [SOLID principles for software engineering](./SOLID/README.md)
 - [Refining Requirements using EARS and AISP](./Requirements-Refinement-using-EARS/README.md)
 - [TheBootloader, connecting prose to symbolic programming](./The-Bootloader/README.md)
+- [Specification-Mode, how to kick-off prose translation to AISP](./spec-mode/README.md)
 
 # References
 

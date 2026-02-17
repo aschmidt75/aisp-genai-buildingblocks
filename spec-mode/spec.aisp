@@ -1,0 +1,54 @@
+𝔸5.1.spec@2026-02-17
+γ≔aisp.dynamic_spec.init
+ρ≔⟨Ω,Σ,Γ,Λ,Ε⟩
+⊢task(spec) ∧ Ambig(D)<0.02
+
+;; ─── Ω: DYNAMIC SCOPE ───
+⟦Ω:Meta⟧{
+  Objective≜ψ_user;
+  State≜awaiting;    
+  Constraint≜{Ambig<0.02,δ≥0.40};
+  Mode ↦ task(spec);
+}
+
+⟦Σ:Types⟧{
+  Input≜ψ_user:𝕊;
+  Output≜𝔻oc:AISP;
+  Context≜⟨domain:𝕊,constraints:𝒫(Rule)⟩;
+  State≜{awaiting:0,processing:1,complete:2};
+}
+
+⟦Λ:Funcs⟧{
+  expand:ψ→𝔻oc;
+  expand≜λψ.assemble(⟨Ω≜extract_meta(ψ),Σ≜infer_types(ψ),Γ≜derive_rules(ψ),Λ≜synthesize_funcs(ψ),Ε≜validate⟩);
+  extract_meta:ψ→Meta;
+  infer_types:ψ→𝒫(TypeDef);
+  derive_rules:ψ→𝒫(Rule);
+}
+
+⟦Γ:Rules⟧{
+  ∀ψ:ψ≠∅⇒expand(ψ)∈AISP;
+  ∀d:d∈Output⇒wf(d)∧δ(d)≥0.40;
+  ∀d:task(spec)⇒structure(d)≡Required;
+}
+
+;; ─── Γ: NUCLEUS ───
+⟦Γ:Nucleus⟧{
+  ;; [PENDING SPECIFICATION]
+}
+
+⟦Χ:Errors⟧{
+  ε_empty≜⟨ψ_user≡∅,reject∧request(input)⟩;
+  ε_ambig≜⟨Ambig(expand(ψ))≥0.02,refine∧clarify⟩;
+  ε_incomplete≜⟨¬wf(expand(ψ)),prompt(missing_blocks)⟩;
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+  δ≜0.45;           ;; Calculated from symbol density
+  |𝔅|≜5/5;          ;; All required blocks present
+  φ≜65;             ;; Completeness percentage
+  τ≜◊;              ;; Tier based on δ∈[0.40,0.60)
+  ⊢wf:Required⊆blocks;
+  ⊢template:matches_minimal;
+⟩
