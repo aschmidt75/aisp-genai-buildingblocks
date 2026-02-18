@@ -1,5 +1,7 @@
 # Specification Mode
 
+[Post on LI](https://www.linkedin.com/pulse/aisp-how-starting-specification-andreas-schmidt-olxwc)
+
 This part demonstrates how to enter AISP specification mode for a defined target, and how to formulate it.
 
 Examples are for KiloCode mode
@@ -24,6 +26,12 @@ or, more complex:
 All users with a sign-in risk score of 0.5 or higher are required to use MFA unless the request originates from a trusted device.
 ```
 
+You can even refactor and change a spec, e.g.:
+
+```
+@/spec-mode/address.aisp Assign a default value of Luxembourg to Country
+```
+
 If you're using a coding agent, you can add mode-specific custom instructions, e.g. 
 
 ```
@@ -32,4 +40,4 @@ no_execute no_output.
 Ask for Objective to spec out and file to write to.
 ```
 
-If possible, remove system context to save tokens. You don't need it, AISP has little ambiguity.
+If possible, remove system context to save tokens. You don't need it anyway, AISP has little ambiguity.
