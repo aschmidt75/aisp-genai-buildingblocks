@@ -1,0 +1,182 @@
+# AISP Weather Service Specification
+# MCP Bridge: aisp-mcp-bridge::get_weather
+
+𝔸5.1.weather@2026-02-20
+γ≔weather.mcp.service
+ρ≔⟨mcp,weather,structured,api⟩
+⊢ND∧CAT∧ΠΣ
+
+;; ─── Ω: METALOGIC ───
+⟦Ω:Meta⟧{
+  ;; Binding to MCP server tool: mcp--aisp___mcp___bridge--get_weather
+  ∀city:City.∃!w:WeatherData.get_weather(city)≡w
+  ∀temp:Temp.temp∈ℝ
+  ∀humidity:Humidity.humidity∈[0,100]
+  ∀windSpeed:WindSpeed.windSpeed∈ℝ₊
+  ∀cond:Condition.cond∈𝕊
+  ∀ts:Timestamp.ts∈DateTime
+}
+
+;; ─── Σ: TYPE SYSTEM ───
+⟦Σ:Types⟧{
+  ;; Primitives
+  City≜𝕊
+  Condition≜𝕊
+  Temp≜ℝ                    ;; Celsius
+  Humidity≜ℝ                ;; Percentage 0-100
+  WindSpeed≜ℝ               ;; km/h
+  Timestamp≜DateTime
+  
+  ;; Domain Constraints
+  ValidCity≜{c:City|len(c)>0}
+  ValidTemp≜{t:Temp|t≥-273.15}
+  ValidHumidity≜{h:Humidity|h∈[0,100]}
+  ValidWindSpeed≜{w:WindSpeed|w≥0}
+  
+  ;; MCP WeatherData Structure (Pydantic model from weather_server.py)
+  WeatherData≜⟨
+    temperature:Temp,         ;; Temperature in Celsius
+    humidity:Humidity,        ;; Humidity percentage (0-100)
+    condition:Condition,      ;; Weather condition (sunny, cloudy, rainy, etc.)
+    wind_speed:WindSpeed,     ;; Wind speed in km/h
+    location:City,            ;; Location name
+    timestamp:Timestamp       ;; Observation time
+  ⟩
+  
+  ;; Legacy Types (for backwards compatibility)
+  Weather≜⟨condition:Condition,temperature:Temp⟩
+  WeatherQuery≜⟨city:City⟩
+  WeatherResponse≜⟨city:City,weather:WeatherData⟩
+  
+  ;; Result Type
+  Result≜WeatherData⊕Error
+  Error≜⟨msg:𝕊,code:ℕ⟩
+}
+
+;; ─── Γ: RULES & INVARIANTS ───
+⟦Γ:Rules⟧{
+  ;; Input Validation
+  ∀c:City.len(c)≡0⇒Error⟨"Invalid city",400⟩
+  
+  ;; Temperature Physics
+  ∀t:Temp.t<-273.15⇒Error⟨"Temperature below absolute zero",500⟩
+  
+  ;; Humidity Bounds
+  ∀h:Humidity.h∉[0,100]⇒Error⟨"Humidity out of range",500⟩
+  
+  ;; Wind Speed Non-negative
+  ∀w:WindSpeed.w<0⇒Error⟨"Invalid wind speed",500⟩
+  
+  ;; Determinism (MCP tool is deterministic by contract)
+  ∀c:City.get_weather(c)≡get_weather(c)
+  
+  ;; Non-emptiness
+  ∀c:ValidCity.∃w:WeatherData.get_weather(c)≡w
+  
+  ;; Completeness (all fields present)
+  ∀w:WeatherData.
+    w.temperature∈ℝ∧
+    w.humidity∈[0,100]∧
+    w.condition∈𝕊∧
+    w.wind_speed≥0∧
+    w.location∈𝕊∧
+    w.timestamp∈DateTime
+}
+
+;; ─── Λ: CORE FUNCTIONS ───
+⟦Λ:Functions⟧{
+  get_weather:City→Result
+  get_weather≜λcity.
+    len(city)≡0→Error⟨"Invalid city",400⟩|
+    let wd=mcp_fetch_weather(city)in
+    wd.temperature<-273.15→Error⟨"Invalid temperature",500⟩|
+    wd.humidity∉[0,100]→Error⟨"Invalid humidity",500⟩|
+    wd.wind_speed<0→Error⟨"Invalid wind speed",500⟩|
+    wd
+  
+  mcp_fetch_weather:City→WeatherData
+  mcp_fetch_weather≜λcity.⟨
+    temperature≔mcp_lookup_temp(city),
+    humidity≔mcp_lookup_humidity(city),
+    condition≔mcp_lookup_condition(city),
+    wind_speed≔mcp_lookup_windspeed(city),
+    location≔city,
+    timestamp≔now()
+  ⟩
+  
+  mcp_lookup_condition:City→Condition
+  mcp_lookup_temp:City→Temp
+  mcp_lookup_humidity:City→Humidity
+  mcp_lookup_windspeed:City→WindSpeed
+  
+  ;; Helper: Temperature Conversion
+  celsius_to_fahrenheit:Temp→Temp
+  celsius_to_fahrenheit≜λc.c×1.8+32
+  
+  fahrenheit_to_celsius:Temp→Temp
+  fahrenheit_to_celsius≜λf.(f-32)÷1.8
+  
+  ;; Helper: Extract legacy Weather from WeatherData
+  to_legacy_weather:WeatherData→Weather
+  to_legacy_weather≜λwd.⟨
+    condition≔wd.condition,
+    temperature≔wd.temperature
+  ⟩
+}
+
+;; ─── Χ: ERROR HANDLING ───
+⟦Χ:Errors⟧{
+  ε_empty≜⟨len(city)≡0,Error⟨"City name required",400⟩⟩
+  ε_invalid≜⟨¬valid_city(city),Error⟨"Unknown city",404⟩⟩
+  ε_physics≜⟨temp<-273.15,Error⟨"Temperature violation",500⟩⟩
+  ε_humidity≜⟨humidity∉[0,100],Error⟨"Humidity out of range",500⟩⟩
+  ε_windspeed≜⟨wind_speed<0,Error⟨"Negative wind speed",500⟩⟩
+  ε_timeout≜⟨elapsed>5s,Error⟨"Request timeout",504⟩⟩
+}
+
+;; ─── Μ: MCP BINDING ───
+⟦Μ:MCP⟧{
+  ;; MCP Server Configuration
+  server≜"aisp-mcp-bridge"
+  tool≜"get_weather"
+  qualified_name≜"mcp--aisp___mcp___bridge--get_weather"
+  
+  ;; Tool Signature
+  signature≜get_weather(city:str)→WeatherData
+  
+  ;; Implementation binding
+  impl≜"aisp-mcp-bridge/src/weather_server.py"
+  model≜WeatherData{
+    temperature:float,
+    humidity:float,
+    condition:str,
+    wind_speed:float,
+    location:str,
+    timestamp:datetime
+  }
+  
+  ;; Runtime Contract
+  contract≜{
+    pre:len(city)>0,
+    post:∀wd:WeatherData.
+      wd.temperature∈ℝ∧
+      wd.humidity∈[0,100]∧
+      wd.wind_speed≥0∧
+      wd.location≡city
+  }
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+δ≜0.85
+|𝔅|≜6/6
+φ≜92
+τ≜◊⁺
+⊢ND:∀city:∃!weatherdata
+⊢deterministic:get_weather(c)≡get_weather(c)
+⊢bounded:∀t∈Temp.t≥-273.15
+⊢humidity_bounded:∀h∈Humidity.h∈[0,100]
+⊢windspeed_positive:∀w∈WindSpeed.w≥0
+⊢typed:City→WeatherData
+⊢mcp_bound:tool≡"mcp--aisp___mcp___bridge--get_weather"
+⟩

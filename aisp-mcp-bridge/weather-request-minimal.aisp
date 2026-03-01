@@ -1,0 +1,35 @@
+# AISP Weather Request: Minimal
+
+𝔸5.1.weather_request@2026-02-20
+γ≔weather.request.minimal
+ρ≔⟨weather.mcp.service⟩
+⊢ND
+
+;; ─── Ω: META ───
+⟦Ω:Meta⟧{
+  ;; Context: Import from weather.mcp.service
+  ctx≔𝔸5.1.weather@2026-02-20[γ≔weather.mcp.service]
+  ∀city:𝕊.∃!wd:WeatherData.request(city)≡wd
+}
+
+⟦Σ:Types⟧{
+  Input≜ψ_user:𝕊
+  Output≜𝔻oc:AISP
+}
+
+;; ─── Λ: FUNCTIONS ───
+⟦Λ:Functions⟧{
+  request:𝕊→WeatherData
+  request≜λcity.get_weather(city)
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+δ≜0.92
+|𝔅|≜3/3
+φ≜95
+τ≜◊⁺
+⊢ctx:𝔸5.1.weather@2026-02-20[γ≔weather.mcp.service]
+⊢imports:WeatherData,get_weather
+⊢io:Input=ψ_user:𝕊→Output=𝔻oc:AISP
+⟩

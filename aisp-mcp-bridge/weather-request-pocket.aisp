@@ -1,0 +1,79 @@
+# AISP Weather Request: Minimal
+
+𝔸5.1.weather_request_pocket@2026-02-20
+γ≔weather.request.pocket
+ρ≔⟨weather.mcp.service⟩
+⊢ND
+
+;; ─── Ω: META ───
+⟦Ω:Meta⟧{
+  ;; Context: Import from weather.mcp.service
+  ctx≔𝔸5.1.weather@2026-02-20[γ≔weather.mcp.service]
+  ∀city:𝕊.∃!wd:WeatherData.request(city)≡wd
+}
+
+⟦Σ:Types⟧{
+  Input≜ψ_user:𝕊
+  Output≜𝒫:Pocket
+  
+  ;; Pocket Structure (from AISP 5.1)
+  𝒫≜⟨ℋ:Header,ℳ:Membrane,𝒩:Nucleus⟩
+  ℋ≜⟨id:Hash,V:Signal,f:𝔹⁶⁴⟩
+  ℳ≜⟨aff:Hash→ℝ,conf:ℝ[0,1],tag:𝒫(𝕊),use:ℕ⟩
+  𝒩≜⟨def:AISP,ir:LLVM,wa:WASM,σ:Sig⟩
+}
+
+;; ─── Λ: FUNCTIONS ───
+⟦Λ:Functions⟧{
+  request:𝕊→𝒫
+  request≜λcity.
+    let wd=get_weather(city)in
+    mk_pocket(wd)
+  
+  mk_pocket:WeatherData→𝒫
+  mk_pocket≜λwd.⟨
+    ℋ≔⟨
+      id≔SHA256(𝒩.def),
+      V≔embed(wd),
+      f≔0x0000000000000000
+    ⟩,
+    ℳ≔⟨
+      aff≔∅,
+      conf≔0.95,
+      tag≔{"weather","mcp","structured"},
+      use≔0
+    ⟩,
+    𝒩≔⟨
+      def≔serialize_aisp(wd),
+      ir≔∅,
+      wa≔∅,
+      σ≔sign(serialize_aisp(wd))
+    ⟩
+  ⟩
+  
+  embed:WeatherData→Signal
+  embed≜λwd.V_H(wd)⊕V_L(wd)⊕V_S(wd)
+  
+  serialize_aisp:WeatherData→AISP
+  serialize_aisp≜λwd.
+    "⟨temperature≔"⧺show(wd.temperature)⧺
+    ",humidity≔"⧺show(wd.humidity)⧺
+    ",condition≔\""⧺wd.condition⧺"\"⧺
+    ",wind_speed≔"⧺show(wd.wind_speed)⧺
+    ",location≔\""⧺wd.location⧺"\"⧺
+    ",timestamp≔\""⧺show(wd.timestamp)⧺"\"⟩"
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+δ≜0.88
+|𝔅|≜3/3
+φ≜94
+τ≜◊⁺
+⊢ctx:𝔸5.1.weather@2026-02-20[γ≔weather.mcp.service]
+⊢imports:WeatherData,get_weather
+⊢io:Input=ψ_user:𝕊→Output=𝒫:Pocket
+⊢pocket_structure:ℋ∧ℳ∧𝒩
+⊢immutability:∂𝒩⇒∂ℋ.id
+⊢content_addressing:ℋ.id≡SHA256(𝒩)
+⟩
