@@ -1,7 +1,11 @@
 # AISP MCP bridge example
 
+[LinkedIn Post](https://www.linkedin.com/pulse/connecting-aisp-specs-mcp-servers-andreas-schmidt-k1gie)
+
 This example bridges an AISP specification to an MCP server.
 It uses the sample [weather service MCP](https://github.com/modelcontextprotocol/python-sdk/blob/main/examples/mcpserver/weather_structured.py) from Python SDK on modelcontextprotocol.
+
+Build+deploy the mcp server and configure in your agent.
 
 Start with the AISP specifications of AISP51 and the weather service:
 
