@@ -8,7 +8,7 @@ This repository contains sample building blocks for using [AISP](https://github.
 - [Refining Requirements using EARS and AISP](./Requirements-Refinement-using-EARS/README.md)
 - [TheBootloader, connecting prose to symbolic programming](./The-Bootloader/README.md)
 - [Specification-Mode, how to kick-off prose translation to AISP](./spec-mode/README.md)
-- [Connecting the AISP specification to an MCP server](./aisp-mcp-bridge/README.md)]
+- [Connecting the AISP specification to an MCP server](./aisp-mcp-bridge/README.md)
 
 # References
 
