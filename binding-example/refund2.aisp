@@ -1,0 +1,67 @@
+𝔸5.1.Refund.Unified@2026-03-04
+γ≔aisp.unified.refund_trace
+ρ≔⟨Ω,Σ,Γ,Λ,Χ,Ε⟩
+⊢Δ⊗λ∧𝕄_val∧𝕃₁
+
+;; ─── Ω: FOUNDATION ───
+⟦Ω:Foundation⟧{
+Input_S ≜ 𝕊                       ;; Raw Prose
+Data_T  ≜ ⟨d:ℕ, p:ℝ⟩              ;; Formal Type
+Result  ≜ {⊤, ⊥}                  ;; Decision
+}
+
+;; ─── Σ: TYPES & MODES ───
+⟦Σ:Types⟧{
+TraceLog ≜ ⟨t:ℕ, state:Δ, μ:𝕊⟩
+;; Binding states: 1:Null, 2:Adapt, 3:Zero-Cost
+Δ_Steps ≜ {S1:1, S2:2, S3:3}
+}
+
+;; ─── Γ: INFERENCE (REFUND RULES) ───
+⟦Γ:Inference⟧{
+;; Direct Approval Logic
+d ≤ 30  p ≤ 100
+─────────────── [Direct-I]
+⊢ Policy(d,p) ≡ ⊤
+
+;; Rejection Logic
+d > 30 ∨ p > 100
+─────────────── [Reject-I]
+⊢ Policy(d,p) ≡ ⊥
+}
+
+;; ─── Λ: UNIFIED PIPELINE ───
+⟦Λ:Pipeline⟧{
+;; Step 1: Ingest & Log
+ingest ≜ λs. ⟨s, ⟨t:0, state:1, μ:"Signal Ingested"⟩⟩
+
+;; Step 2: Map Prose to Data_T (The Adaptation)
+map ≜ λs. let data = ∂(s) in
+⟨data, ⟨t:1, state:2, μ:"Atoms Bound to ℕ×ℝ"⟩⟩
+
+;; Step 3: Prove & Execute (The Zero-Cost Transition)
+decide ≜ λdata. let res = Policy(data) in
+res ≡ ⊤ ⇒ ⟨res, ⟨t:2, state:3, μ:"Proof π Valid; DCE Active"⟩⟩
+| ⟨res, ⟨t:2, state:0, μ:"Policy Violation"⟩⟩
+
+;; Main Execution Flow
+run ≜ decide ∘ map ∘ ingest
+}
+
+;; ─── Χ: ERROR RECOVERY ───
+⟦Χ:Errors⟧{
+ε_ambig ≜ ⟨Ambig(s) > 0.02, refine(s)⟩
+ε_type  ≜ ⟨Type(p) ≢ ℝ, cast(p)⟩
+;; If logic cannot reach state 3, the system defaults to Manual Review
+fallback ≜ ⟨state < 3, flag_manual⟩
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+δ≜0.89
+φ≜100
+τ≜◊⁺⁺
+⊢Policy(d≤30, p≤100) ↦ (Δ≡3)
+⊢Trace_Integrity: ∀run.len(logs)≡3
+⊢ND: [Direct-I, Reject-I]
+⟩
