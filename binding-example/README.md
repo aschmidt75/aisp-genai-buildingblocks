@@ -1,5 +1,7 @@
 # Binding Example
 
+Ref: [LinkedIn Post](https://www.linkedin.com/posts/aschmidt75_aisp-activity-7436736424873246720-aiTF?utm_source=share&utm_medium=member_desktop&rcm=ACoAAADiGpoBA8J4y0fSk8WcWP9DQN1sCiRHPkE)
+
 This is a small example demonstrating how the Agent Guide in AISP works on the binding of prose language elements to AISP specification 
 constructs. 
 
