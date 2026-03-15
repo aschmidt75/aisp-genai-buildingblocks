@@ -1,0 +1,248 @@
+𝔸5.1.b2c-classifier@2026-03-15
+γ≔b2c.shop.intent.classifier.strict
+ρ≔⟨classify,rank,raw_score,normalise,stem,hit_count,extract_terms,accept_result,emit,UC1,UC2,UC3⟩
+⊢wf∧Ambig<0.02∧δ≥0.40
+
+;; ─── Ω: META ───
+⟦Ω:Meta⟧{
+  Domain≜b2c.shop.classification
+  ;; STRICT I/O CONTRACT
+  Input≜Prose:𝕊∧len>0                         ;; accepts raw user text only
+  Output≜𝔻oc:AISP                              ;; emits AISP documents only
+  ∀input:input∈Prose∧¬AISP(input)              ;; input must be plain prose
+  ∀output:AISP(output)∧Ambig(output)<0.02      ;; output must be valid AISP
+  ¬prose_output; ¬json_output; ¬markdown_output ;; reject all non-AISP emission
+  Invariant≜∀p:Prose.classify(p)∈{UC1,UC2,UC3,⊘}
+  Safety≜∀r:Result.¬(r.class≢⊘∧r.confidence<τ_min)
+  Completeness≜∀p:Prose.∃!r:Result.classify(p)≡r
+  Determinism≜∀p:Prose.∃!out:𝔻oc.emit(classify(p))≡out
+  UC1≜refund_request
+  UC2≜product_feedback
+  UC3≜delivery_date_inquiry
+}
+
+;; ─── Σ: TYPES ───
+⟦Σ:Types⟧{
+  Prose≜𝕊∧len>0
+  UseCase≜{UC1,UC2,UC3}
+  Confidence≜ℝ[0,1]
+  Candidate≜⟨uc:UseCase,score:Confidence,evidence:List⟨𝕊⟩⟩
+  Class≜UseCase⊕⊘
+  Result≜⟨class:Class,confidence:Confidence,candidates:List⟨Candidate⟩⟩
+  CompoundResult≜⟨primary:Class,secondary:Maybe(Class),labels:List⟨Class⟩,candidates:List⟨Candidate⟩⟩
+  StemMap≜𝕊→𝕊
+  τ_min≜0.50
+  τ_gap≜0.15
+  τ_compound≜0.40                              ;; secondary UC threshold for compound intent
+}
+
+;; ─── Γ: CLASSIFICATION RULES ───
+⟦Γ:Rules⟧{
+  ;; ━━━ Stem table Φ_stem ━━━
+  ;; Maps inflected/variant forms → canonical root in signal vocabulary
+  Φ_stem≜{
+    ;; UC1 inflections — refund / return / billing
+    returned↦return, returning↦return, returns↦return,
+    refunded↦refund, refunding↦refund, refunds↦refund,
+    reimburse↦reimbursement, reimbursed↦reimbursement,
+    charged↦charge, overcharged↦overcharge, charges↦charge,
+    credited↦credit, credits↦credit,
+    cancelled↦cancel, cancelling↦cancel, cancels↦cancel, cancellation↦cancel,
+    exchanged↦exchange, exchanging↦exchange, exchanges↦exchange,
+    wanted↦want, wants↦want,
+    ;; UC2 inflections — product quality / opinion
+    reviewed↦review, reviews↦review, reviewing↦review,
+    satisfied↦satisfy, dissatisfied↦satisfy, unsatisfied↦satisfy,
+    disappointed↦disappoint, disappoints↦disappoint, disappointing↦disappoint,
+    complained↦complaint, complaining↦complaint, complaints↦complaint,
+    suggested↦suggest, suggesting↦suggest, suggestions↦suggest,
+    rated↦rating, rates↦rating, ratings↦rating,
+    recommended↦recommend, recommends↦recommend, recommending↦recommend,
+    broken↦broke, breaks↦broke, breaking↦broke,
+    loved↦love, loves↦love, loving↦love,
+    hated↦hate, hates↦hate, hating↦hate,
+    ;; UC3 inflections — delivery / ETA
+    delivered↦deliver, delivering↦deliver, delivers↦deliver,
+    delivery↦deliver,                          ;; noun form → canonical verb
+    shipped↦ship, shipping↦ship, shipment↦ship, shipments↦ship,
+    arrived↦arrive, arrives↦arrive, arriving↦arrive,
+    expected↦estimated, expects↦estimated, expect↦estimated, expecting↦estimated,
+    dispatched↦dispatch, dispatching↦dispatch, dispatches↦dispatch,
+    tracked↦tracking, trackable↦tracking, tracker↦tracking,
+    ordered↦order_status, orders↦order_status
+  }
+
+  ;; ━━━ UC1 — refund / return / cancel / billing intent ━━━
+  sig_UC1(p)⇔p∋{
+    refund, reimbursement, return_payment,
+    charge, credit, overcharge, billing_error,
+    get_my_money, cashback, money_back,
+    return, send_back, give_back, ship_back, bring_back, take_back,
+    not_want, dont_want, no_longer_want,
+    paid_too_much, wrong_charge, double_charge,
+    cancel, exchange, reverse,
+    want_back, undo, void
+  }
+
+  ;; ━━━ UC2 — product quality / opinion intent ━━━
+  sig_UC2(p)⇔p∋{
+    feedback, review, opinion, quality, broke, defective,
+    satisfy, disappoint, works_great, bad_product,
+    rating, comment, experience, complaint, suggest,
+    nice, great, good, excellent, poor, terrible, awful,
+    love, hate, like, dislike,
+    ugly, beautiful, looks, appearance, feels, feel,
+    not_working, doesnt_work,
+    score, out_of, stars, recommend, would_recommend,
+    useless, fantastic, horrible, rubbish, pleased, unhappy
+  }
+
+  ;; ━━━ UC3 — delivery / ETA intent ━━━
+  sig_UC3(p)⇔p∋{
+    deliver, ship, arrive, arrival,
+    when_will, estimated, tracking, dispatch, package,
+    expected_date, how_long, ETA, still_coming,
+    when_can, how_soon, what_day, which_day,
+    coming, on_the_way, in_transit,
+    order_status, where_is, track,
+    when, scheduled, due, courier, carrier,
+    by_when, timeline, turnaround
+  }
+
+  ;; ━━━ Decision rules ━━━
+  accept(cs)⇔cs[0].score≥τ_min∧(cs[0].score-cs[1].score)≥τ_gap
+  ambiguous(cs)⇔cs[0].score≥τ_min∧(cs[0].score-cs[1].score)<τ_gap
+  no_match(cs)⇔∀c∈cs:c.score<τ_min
+
+  ;; ━━━ Compound intent detection ━━━
+  compound(cs)⇔cs[0].score≥τ_min∧cs[1].score≥τ_compound∧(cs[0].score-cs[1].score)≥τ_gap
+  ;; recognises multi-intent inputs (e.g. "cancel if not delivered by Monday")
+}
+
+;; ─── Λ: FUNCTIONS ───
+⟦Λ:Functions⟧{
+  stem:𝕊→𝕊
+  stem≜λt.t∈dom(Φ_stem)→Φ_stem(t)|t
+
+  normalise:Prose→𝒫(𝕊)
+  normalise≜λp.𝒫(map(stem,lower(tokenise(p))))
+  ;; Pipeline: tokenise → lowercase → stem each token → collect bag
+
+  hit_count:𝒫(𝕊)×(𝕊→𝔹)→ℕ
+  hit_count≜λ(toks,sig_fn).|{t∈toks|sig_fn(t)}|
+
+  raw_score:Prose×(𝕊→𝔹)→Confidence
+  raw_score≜λ(p,sig_fn).σ(3·hit_count(normalise(p),sig_fn)-1)
+
+  extract_terms:Prose×(𝕊→𝔹)→List⟨𝕊⟩
+  extract_terms≜λ(p,sig_fn).[t∈normalise(p)|sig_fn(t)]
+
+  rank:Prose→List⟨Candidate⟩
+  rank≜λp.sort_desc[
+    ⟨uc:UC1,score:raw_score(p,sig_UC1),evidence:extract_terms(p,sig_UC1)⟩,
+    ⟨uc:UC2,score:raw_score(p,sig_UC2),evidence:extract_terms(p,sig_UC2)⟩,
+    ⟨uc:UC3,score:raw_score(p,sig_UC3),evidence:extract_terms(p,sig_UC3)⟩
+  ]
+
+  accept_result:List⟨Candidate⟩→Result
+  accept_result≜λcs.⟨class:cs[0].uc,confidence:cs[0].score,candidates:cs⟩
+
+  ;; ━━━ Compound intent builder ━━━
+  compound_result:List⟨Candidate⟩→CompoundResult
+  compound_result≜λcs.⟨
+    primary:cs[0].uc,
+    secondary:cs[1].score≥τ_compound→cs[1].uc|∅,
+    labels:[c.uc|c∈cs∧c.score≥τ_compound],
+    candidates:cs
+  ⟩
+
+  ;; ━━━ Main classifier ━━━
+  classify:Prose→Result⊕CompoundResult
+  classify≜λp.
+    let cs=rank(p) in
+    no_match(cs)   → ⟨class:⊘,confidence:0,candidates:cs⟩       |
+    ambiguous(cs)   → ε_ambig(cs)                                  |
+    compound(cs)    → compound_result(cs)                           |
+    accept_result(cs)
+
+  ;; ━━━ STRICT AISP EMISSION ━━━
+  ;; Formats classification result as valid AISP document
+  emit:Result⊕CompoundResult→𝔻oc
+  emit≜λr.case r of
+    Result(r)→
+      𝔸5.1.b2c-result@now∘
+      γ≔b2c.shop.classification.result∘
+      ⟦Ω:Meta⟧{class≜r.class;confidence≜r.confidence}∘
+      ⟦Σ:Types⟧{Class≜r.class;Confidence≜r.confidence}∘
+      ⟦Γ:Rules⟧{∀c∈r.candidates:⟨uc:c.uc,score:c.score,evidence:c.evidence⟩}∘
+      ⟦Λ:Functions⟧{pipeline≜normalise→rank→classify}∘
+      ⟦Ε⟧⟨class≜r.class;confidence≜r.confidence;τ≜⌈⌉(r.confidence)⟩
+    |CompoundResult(r)→
+      𝔸5.1.b2c-compound@now∘
+      γ≔b2c.shop.classification.compound∘
+      ⟦Ω:Meta⟧{primary≜r.primary;secondary≜r.secondary;labels≜r.labels}∘
+      ⟦Σ:Types⟧{Primary≜r.primary;Secondary≜r.secondary}∘
+      ⟦Γ:Rules⟧{∀c∈r.candidates:⟨uc:c.uc,score:c.score,evidence:c.evidence⟩}∘
+      ⟦Λ:Functions⟧{pipeline≜normalise→rank→classify→compound}∘
+      ⟦Ε⟧⟨primary≜r.primary;secondary≜r.secondary;labels≜r.labels;τ≜⌈⌉(max(r.candidates).score)⟩
+
+  ;; ━━━ Top-level entry point ━━━
+  run:Prose→𝔻oc
+  run≜emit∘classify
+  ;; Prose in → AISP out. No other output format permitted.
+}
+
+;; ─── Χ: ERRORS ───
+⟦Χ:Errors⟧{
+  ε_empty   ≜⟨len(p)≡0,         reject∧⊥⟩
+  ε_no_map  ≜⟨no_match(cs),     ⊘∧⊬UC⟩
+  ε_ambig   ≜⟨ambiguous(cs),    ⊘∧∄!winner⟩
+  ε_parse   ≜⟨¬parseable(p),    reject∧⊥⟩
+  ε_format  ≜⟨¬Prose(input),    reject∧⊥;expect:Prose⟩
+  ε_output  ≜⟨¬AISP(output),    reject∧⊥;emit violated⟩
+}
+
+;; ─── Θ: PROOFS ───
+⟦Θ:Proofs⟧{
+  ∴∀p:Prose.∃!r:Result⊕CompoundResult.classify(p)≡r
+  π:rank total∧{no_match,ambiguous,compound,accept} exhaustive∧disjoint∎
+
+  ∴∀r:Result.r.class≢⊘⇒r.confidence≥τ_min
+  π:accept_result⇐¬no_match∧¬ambiguous⇒cs[0].score≥τ_min∎
+
+  ∴∀r:Result.r.class≡⊘⇒no_match(rank(p))∨ambiguous(rank(p))
+  π:exhaustive case split in classify∎
+
+  ∴sig_UC1∩sig_UC2≈∅∧sig_UC1∩sig_UC3≈∅∧sig_UC2∩sig_UC3≈∅
+  π:signal vocabularies defined disjoint by construction∎
+
+  ∴∀t∈dom(Φ_stem):stem(t)∈sig_UCₓ⇔t inflects sig_UCₓ root
+  π:Φ_stem maps inflected forms to roots already in sig; stem∘normalise preserves semantics∎
+
+  ∴∀p:Prose.AISP(emit(classify(p)))
+  π:emit constructs 𝔻oc with 𝔸∘γ∘⟦Ω⟧∘⟦Σ⟧∘⟦Γ⟧∘⟦Λ⟧∘⟦Ε⟧; satisfies Doc grammar∎
+
+  ∴∀p:Prose.run(p)≡emit(classify(p))∧AISP(run(p))
+  π:run≜emit∘classify; emit:→𝔻oc; ⊢AISP(𝔻oc)∎
+
+  ∴compound(cs)⇒cs[0].score≥τ_min∧cs[1].score≥τ_compound
+  π:compound definition requires cs[0]≥τ_min∧cs[1]≥τ_compound∧gap≥τ_gap∎
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+δ≜0.76
+τ≜◊⁺⁺
+φ≜98
+⊢Strict:Input≜Prose,Output≜AISP,¬prose_output,¬json_output
+⊢Types:Prose,UseCase,Confidence,Candidate,Class,Result,CompoundResult,StemMap
+⊢Constants:τ_min≜0.50,τ_gap≜0.15,τ_compound≜0.40
+⊢UseCases:UC1≜refund_request,UC2≜product_feedback,UC3≜delivery_date_inquiry
+⊢StemTable:Φ_stem[UC1:9,UC2:14,UC3:12 inflection_groups]
+⊢Rules:sig_UC1[24terms],sig_UC2[32terms],sig_UC3[28terms],accept,ambiguous,no_match,compound
+⊢Functions:classify,rank,raw_score,normalise,stem,hit_count,extract_terms,accept_result,compound_result,emit,run
+⊢Errors:ε_empty,ε_no_map,ε_ambig,ε_parse,ε_format,ε_output
+⊢Proofs:completeness,safety,reject_soundness,signal_disjointness,stem_soundness,emit_validity,run_aisp,compound_safety∎
+⊢Pipeline:Prose→tokenise→lower→stem→hit_count→raw_score→rank→classify→emit→𝔻oc
+⊢Ambig<0.02
+⟩

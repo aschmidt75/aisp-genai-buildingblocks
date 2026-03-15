@@ -10,6 +10,7 @@ This repository contains sample building blocks for using [AISP](https://github.
 - [Specification-Mode, how to kick-off prose translation to AISP](./spec-mode/README.md)
 - [Connecting the AISP specification to an MCP server](./aisp-mcp-bridge/README.md)
 - [Tracing the binding states on a chatbot example](./binding-example/README.md)
+- [Classification Example for a B2C customer service chatbot](./chat-classification/README.md)
 
 # References
 
