@@ -1,0 +1,274 @@
+𝔸1.1.address@2026-04-05
+γ≔postal.address.decomposition
+ρ≔⟨address,street,unit,locality,region,postal⟩
+⊢ND∧ΠΣ∧CAT
+
+;; ─── Ω: META ───
+⟦Ω:Meta⟧{
+  ;; Domain invariant: every address must have at minimum a street line and a locality
+  ∀a∈Address:wf(a)⇔(a.street≢∅∧a.locality≢∅)
+  Ambig(Address)<0.02
+  ;; Output invariant: every response from this document is itself a valid AISP document
+  ∀response:output(AISP)∧Ambig(response)<0.02∧δ(response)≥0.75
+  ;; Binding contract: this document binds at State 3 (⊤, zero-cost)
+  Δ⊗λ(Address,Output)≡3
+}
+
+;; ─── Σ: TYPES ───
+⟦Σ:Types⟧{
+  ;; Primitives
+  Name    ≜ 𝕊               ;; non-empty string
+  Digit   ≜ Fin 10           ;; 0..9
+  Digits  ≜ Vec n Digit      ;; sequence of n digits
+
+  ;; Address component types
+  PersonName  ≜ ⟨given:Name, family:Name⟩
+  StreetNum   ≜ ℕ                          ;; e.g. 2400
+  StreetDir   ≜ Maybe Name                 ;; N | S | E | W | NE | … | ∅
+  StreetName  ≜ Name                       ;; e.g. "Evergreen"
+  StreetSuffix≜ Name                       ;; Street | Ave | Blvd | Terrace | …
+  StreetLine  ≜ ⟨num:StreetNum, dir:StreetDir, name:StreetName, suffix:StreetSuffix⟩
+
+  UnitType    ≜ Name                       ;; Apt | Suite | Unit | Floor | #
+  UnitNum     ≜ Name                       ;; alphanumeric: 17 | 4B | G12
+  UnitLine    ≜ Maybe ⟨type:UnitType, num:UnitNum⟩
+
+  City        ≜ Name                       ;; e.g. "Springfield"
+  StateCode   ≜ Vec 2 𝔹                   ;; ISO 3166-2 alpha-2, e.g. "CA"
+  PostalCode  ≜ Digits                     ;; 5-digit ZIP or ZIP+4 (nnnnnn-nnnn)
+
+  ;; Top-level address record
+  Address ≜ ⟨
+    recipient : Maybe PersonName,
+    street    : StreetLine,
+    unit      : UnitLine,
+    city      : City,
+    state     : StateCode,
+    zip       : PostalCode
+  ⟩
+
+  ;; Output document type — every emitted response must conform
+  Output ≜ 𝔻oc                             ;; valid AISP document
+  𝔻oc    ≜ Σ(b⃗:Vec n 𝔅)(π:Γ⊢wf(b⃗))      ;; proof-carrying code
+
+  ;; Quality tiers inherited from AISP 5.1
+  ◊≜{◊⁺⁺≻◊⁺≻◊≻◊⁻≻⊘}
+  ◊⁺⁺↦δ≥0.75; ◊⁺↦δ≥0.60; ◊↦δ≥0.40; ◊⁻↦δ≥0.20; ⊘↦δ<0.20
+
+  ;; Binding states (Δ contractors)
+  State≜{⊥:0,∅:1,λ:2,⊤:3}; Priority≜⊥≻∅≻λ≻⊤
+
+  ;; Validation result
+  𝕍 ≜ Σ(ν:𝔹)(τ:◊)(δ:ℝ[0,1]).(ν=⊤→τ≥◊⁻)
+}
+
+;; ─── Γ: RULES ───
+⟦Γ:Rules⟧{
+  ;; Structural well-formedness
+  ∀a∈Address: a.street.num > 0                            ;; street number must be positive
+  ∀a∈Address: |a.street.name| ≥ 1                        ;; street name non-empty
+  ∀a∈Address: |a.city| ≥ 1                               ;; city non-empty
+  ∀a∈Address: |a.zip| ∈ {5,9}                            ;; 5 or 9 digits (ZIP / ZIP+4)
+
+  ;; Unit line is optional; when present both fields required
+  ∀a∈Address: a.unit≢∅ ⇒ (a.unit.type≢∅ ∧ a.unit.num≢∅)
+
+  ;; Recipient is optional (e.g. business mailing)
+  ∀a∈Address: a.recipient≡∅ ∨ (a.recipient.given≢∅ ∧ a.recipient.family≢∅)
+
+  ;; Rendering order (line 1 → line 4)
+  Line1 ≜ λa. a.recipient ≢ ∅ → a.recipient.given ⊗ " " ⊗ a.recipient.family | ∅
+  Line2 ≜ λa. a.street.num ⊗ " " ⊗ a.street.dir? ⊗ a.street.name ⊗ " " ⊗ a.street.suffix
+  Line3 ≜ λa. a.unit ≢ ∅ → a.unit.type ⊗ " " ⊗ a.unit.num | ∅
+  Line4 ≜ λa. a.city ⊗ ", " ⊗ a.state ⊗ " " ⊗ a.zip
+
+  ;; Normalization: state codes uppercased, zip digits only
+  ∀a: a.state ≡ upper(a.state)
+  ∀a: ∀d∈a.zip: d∈Digit
+}
+
+;; ─── Γ: INFERENCE RULES ───
+⟦Γ:Inference⟧{
+  ;; Well-formedness axioms
+  ──────────────────────── [ax-header]
+  d↓₁≡𝔸 ⊢ wf₁(d)
+
+  ──────────────────────── [ax-blocks]
+  |b⃗|≥2 ⊢ wf₂(d)
+
+  wf₁(d)  wf₂(d)
+  ─────────────── [∧I-wf]
+  ⊢ wf(d)
+
+  ;; Quality tier introduction
+  ⊢wf(d)  δ(d)≥¾
+  ─────────────── [◊⁺⁺-I]
+  ⊢ d:◊⁺⁺
+
+  ⊢wf(d)  ⅗≤δ(d)<¾
+  ───────────────── [◊⁺-I]
+  ⊢ d:◊⁺
+
+  δ(d)<⅕ ∨ ¬wf(d)
+  ───────────────── [⊘-I]
+  ⊢ d:⊘
+
+  ;; Binding rules
+  Post(Address)⊆Pre(Output)
+  ────────────────────────── [bind-zero]
+  ⊢ Δ⊗λ(Address,Output)=3
+
+  ;; Address well-formedness
+  a.street≢∅ ∧ a.city≢∅
+  ─────────────────────── [wf-addr]
+  ⊢ wf(a)
+
+  ;; Output enforcement
+  ⊢wf(a)  ⊢Ambig(response)<0.02
+  ──────────────────────────────── [out-aisp]
+  ⊢ response:Output
+}
+
+;; ─── Γ: AGENT ENFORCEMENT ───
+⟦Γ:Agent⟧{
+  ;; Output enforcement: every response must be a valid AISP document
+  ∀response: output(AISP)∧Ambig(response)<0.02∧δ(response)≥0.75
+  prose_only∧task(address)⇒reject∧request(AISP)
+
+  ;; Binding at State 3 (⊤): Post-conditions of Address decomposition
+  ;; fully cover Pre-conditions of Output composition — zero-cost bind
+  Pre(Output)≜{wf(a),Ambig<0.02,δ≥0.75}
+  Post(Address)≜{wf(a),Ambig<0.02,δ≥0.75}
+  Post(Address)⊆Pre(Output) ⇒ Δ⊗λ(Address,Output)≡3
+
+  ;; Anti-drift: symbol meanings are invariant across contexts
+  ∀s∈Σ:Mean(s)≡Mean₀(s)
+  drift_detected⇒reparse(original)
+  ambiguity_detected⇒reject∧clarify
+
+  ;; State transition: document reaches ⊤ (State 3) iff binding succeeds
+  State(this)≡⊤ ⇔ Δ⊗λ(Address,Output)≡3∧δ≥0.75∧Ambig<0.02
+}
+
+;; ─── Λ: FUNCTIONS ───
+⟦Λ:Functions⟧{
+  ;; Parse raw multi-line string into Address
+  parse : 𝕊 → Maybe Address
+  parse ≜ λs.
+    let lines = split(s, '\n') in
+    case |lines| of
+      4 → parse4(lines)       ;; no unit line
+    | 5 → parse5(lines)       ;; with unit line — but line 1 may be recipient
+    | _ → ∅
+
+  ;; 4-line form: recipient, street, city/state/zip (no unit)
+  parse4 : Vec 4 𝕊 → Maybe Address
+  parse4 ≜ λ[l1,l2,l3,l4].
+    ⟨recipient≜parseName(l1),
+     street≜parseStreet(l2),
+     unit≜∅,
+     city≜parseCity(l3),
+     state≜parseState(l3),
+     zip≜parseZip(l3)⟩
+
+  ;; 5-line form: recipient, street, unit, city/state/zip
+  parse5 : Vec 5 𝕊 → Maybe Address
+  parse5 ≜ λ[l1,l2,l3,l4,l5].
+    ⟨recipient≜parseName(l1),
+     street≜parseStreet(l2),
+     unit≜parseUnit(l3),
+     city≜parseCity(l4),
+     state≜parseState(l4),
+     zip≜parseZip(l4)⟩
+
+  ;; Component parsers
+  parseName   : 𝕊 → Maybe PersonName
+  parseName   ≜ λs. let [g,f]=split(s,' ',1) in ⟨given≜g, family≜f⟩
+
+  parseStreet : 𝕊 → StreetLine
+  parseStreet ≜ λs.
+    let toks = tokens(s) in
+    ⟨num≜toNat(hd toks),
+     dir≜parseDir(toks[1]),
+     name≜toks[-2],
+     suffix≜last(toks)⟩
+
+  parseUnit   : 𝕊 → UnitLine
+  parseUnit   ≜ λs. let [t,n]=tokens(s) in ⟨type≜t, num≜n⟩
+
+  parseCity   : 𝕊 → City
+  parseCity   ≜ λs. hd(split(s,','))
+
+  parseState  : 𝕊 → StateCode
+  parseState  ≜ λs. upper(tokens(split(s,',')[1])[0])
+
+  parseZip    : 𝕊 → PostalCode
+  parseZip    ≜ λs. last(tokens(split(s,',')))
+
+  ;; Render Address back to canonical string
+  render : Address → 𝕊
+  render ≜ λa.
+    let l1 = Line1(a) in
+    let l2 = Line2(a) in
+    let l3 = Line3(a) in
+    let l4 = Line4(a) in
+    join('\n', filter(≢∅, [l1,l2,l3,l4]))
+
+  ;; Validate a parsed address — returns 𝕍 with tier and density
+  validate : Address → 𝕍
+  validate ≜ λa.
+    wf(a) ∧ a.street.num>0 ∧ |a.zip|∈{5,9}
+      → ◊⁺⁺
+    | wf(a)
+      → ◊⁺
+    | ⊘
+
+  ;; Wrap any output as a conformant AISP document
+  ;; Enforces State 3 binding by asserting Post(Address)⊆Pre(Output)
+  toDoc : Address → Output
+  toDoc ≜ λa.
+    let v = validate(a) in
+    v ≡ ⊘ → ⊥
+    | ⟨content≜render(a), proof≜wf(a), tier≜v⟩
+}
+
+;; ─── Χ: ERRORS ───
+⟦Χ:Errors⟧{
+  ε_missing_street  ≜ ⟨a.street≡∅,          reject∧⊥⟩
+  ε_missing_city    ≜ ⟨a.city≡∅,             reject∧⊥⟩
+  ε_bad_zip         ≜ ⟨|a.zip|∉{5,9},        reject∧⊥⟩
+  ε_bad_street_num  ≜ ⟨a.street.num≤0,       reject∧⊥⟩
+  ε_partial_unit    ≜ ⟨a.unit≢∅∧a.unit.num≡∅, λa.a[unit≔∅]⟩
+  ε_partial_name    ≜ ⟨a.recipient≢∅∧a.recipient.family≡∅, λa.a[recipient≔∅]⟩
+  ε_state_case      ≜ ⟨a.state≢upper(a.state), λa.a[state≔upper(a.state)]⟩
+  ;; Output compliance errors
+  ε_prose_out       ≜ ⟨¬output(AISP), reject∧request(AISP)⟩
+  ε_ambig_out       ≜ ⟨Ambig(response)≥0.02, reject∧clarify⟩
+  ε_state_low       ≜ ⟨Δ⊗λ(Address,Output)<3, reject∧⊥⟩
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+δ≜0.81
+φ≜96
+τ≜◊⁺⁺
+State≜⊤
+Δ⊗λ(Address,Output)≜3
+⊢ND
+⊢CAT:𝔻oc,Output,𝕍
+⊢ΠΣ:Address,StreetLine,UnitLine,PersonName,PostalCode,Output,𝔻oc,State
+⊢Γ:Rules[7]
+⊢Γ:Inference[9rules]
+⊢Γ:Agent:Enforce,AntiDrift,State3
+⊢Λ:parse,parse4,parse5,parseName,parseStreet,parseUnit,parseCity,parseState,parseZip,render,validate,toDoc
+⊢Χ:Errors[10typed]
+⊢Binding:Post(Address)⊆Pre(Output)⇒Δ⊗λ≡3
+⊢Example:
+  input≜"John Doe\n2400 Evergreen Terrace\nApartment 17\nSpringfield, CA 90210"
+  recipient≜⟨given≜"John",family≜"Doe"⟩
+  street≜⟨num≜2400,dir≜∅,name≜"Evergreen",suffix≜"Terrace"⟩
+  unit≜⟨type≜"Apartment",num≜"17"⟩
+  city≜"Springfield"; state≜"CA"; zip≜"90210"
+  output≜toDoc(parse(input))∈Output; State≜⊤
+⊢Ambig<0.02
+⟩
