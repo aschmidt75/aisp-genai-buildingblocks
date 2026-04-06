@@ -1,5 +1,7 @@
 # Output Control for AISP
 
+[Post on LinkedIn](https://www.linkedin.com/pulse/handling-output-symbolic-only-agents-using-aisp-andreas-schmidt-ub9te)
+
 This folder contains examples for manipulating the output of the AISP process. Depending on the use case, inputs can be prose text or structured AISP. The same applies for the output format.
 
 What follows is some working practises of controlling the output.

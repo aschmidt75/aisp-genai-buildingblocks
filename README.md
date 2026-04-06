@@ -11,7 +11,7 @@ This repository contains sample building blocks for using [AISP](https://github.
 - [Connecting the AISP specification to an MCP server](./aisp-mcp-bridge/README.md)
 - [Tracing the binding states on a chatbot example](./binding-example/README.md)
 - [Classification Example for a B2C customer service chatbot](./chat-classification/README.md)
-- [Enforcing output formats when processing AISP](./output-example/README.md)
+- [Enforcing output formats when processing AISP](./output-example/README.md) [LinkedIn Post](https://www.linkedin.com/pulse/handling-output-symbolic-only-agents-using-aisp-andreas-schmidt-ub9te)
 
 # References
 
