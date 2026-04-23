@@ -12,6 +12,7 @@ This repository contains sample building blocks for using [AISP](https://github.
 - [Tracing the binding states on a chatbot example](./binding-example/README.md)
 - [Classification Example for a B2C customer service chatbot](./chat-classification/README.md)
 - [Enforcing output formats when processing AISP](./output-example/README.md) [LinkedIn Post](https://www.linkedin.com/pulse/handling-output-symbolic-only-agents-using-aisp-andreas-schmidt-ub9te)
+- [Beam Search Tuning of parameters K and τ](./beam-search-tuning/)
 
 # References
 

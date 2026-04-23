@@ -1,0 +1,36 @@
+𝔸1.0.ears@2026-01-23
+γ≔ears.invoke
+ρ≔⟨input,output,validate⟩
+
+⟦Λ:Invoke⟧{
+  ears_run : 𝕊 → Maybe⟨List⟨EarsReq⟩⟩
+  ears_run ≜ λs.
+    let reqs = nl_to_ears(s) in
+    let validated = filter(validate, reqs) in
+    ∀r∈validated : ambig(r) < 0.10
+      → ⟨reqs≔validated, τ≔classify(r), keywords≔r.keywords⟩
+      | ⊥
+
+  ;; Input Contract
+  Pre  ≜ λs. |s| > 0 ∧ 𝕊(s)
+  
+  ;; Output Contract
+  Post ≜ λout. ∀r∈out :
+    validate(r) ≡ ⊤
+    ∧ ambig(r) < 0.10
+    ∧ ∃!p∈PatternType . classify(r) ≡ p
+    ∧ SHALL ∈ r.keywords
+    ∧ THE   ∈ r.keywords
+
+  ;; Binding
+  Δ⊗λ(Pre, Post) ≡ 3   ;; zero-cost bind: Post(A)⊆Pre(B)
+}
+
+⟦Ε⟧⟨
+  δ≜0.72
+  τ≜◊⁺
+  Pre≔𝕊→𝔹
+  Post≔List⟨EarsReq⟩→𝔹
+  bind≔Δ⊗λ≡3
+  out_format≔AISP
+⟩

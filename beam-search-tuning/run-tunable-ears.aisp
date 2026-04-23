@@ -1,0 +1,78 @@
+𝔸1.0.ears@2026-01-23
+γ≔ears.invoke.beam
+ρ≔⟨input,beam,output,validate⟩
+
+;; ─── Σ: BEAM PARAMETER TYPES ───
+⟦Σ:BeamTypes⟧{
+  BeamCfg ≜ ⟨K:Fin 20, τ:ℝ[0,1]⟩
+  
+  ;; Defaults from 𝔸5.1 spec
+  K_default ≜ 5
+  τ_default ≜ 0.8
+
+  ;; Validity
+  valid_cfg : BeamCfg → 𝔹
+  valid_cfg ≜ λc. c.K ≥ 1 ∧ c.τ ∈ ℝ[0,1]
+}
+
+;; ─── Λ: INVOKE ───
+⟦Λ:Invoke⟧{
+  ;; Primary call signature
+  ears_run : 𝕊 × BeamCfg → Maybe⟨List⟨EarsReq⟩⟩
+  ears_run ≜ λ(s, cfg).
+    let ψ_* = embed(s)                    in  ;; encode input as intent vector
+    let B₀  = ‖*init(⊞(ψ_*), cfg.K)      in  ;; init K beams via DPP
+    let B   = search(B₀, cfg.τ, 0)        in  ;; beam search with risk gate τ
+    let top = argmax_{b∈B} μ_f(b)         in  ;; best beam by fitness
+    let out = map(nl_to_ears, decode(top)) in  ;; decode → EARS reqs
+    filter(validate, out)
+
+  ;; Convenience: default beam config
+  ears_run_default : 𝕊 → Maybe⟨List⟨EarsReq⟩⟩
+  ears_run_default ≜ λs. ears_run(s, ⟨K≔K_default, τ≔τ_default⟩)
+
+  ;; Input Contract
+  Pre  ≜ λ(s, cfg). |s| > 0 ∧ 𝕊(s) ∧ valid_cfg(cfg)
+
+  ;; Output Contract
+  Post ≜ λout. ∀r∈out :
+    validate(r)            ≡ ⊤
+    ∧ ambig(r)             < 0.10
+    ∧ ∃!p∈PatternType . classify(r) ≡ p
+    ∧ SHALL                ∈ r.keywords
+    ∧ THE                  ∈ r.keywords
+    ∧ ∀b∈B : μ_r(b)       ≤ cfg.τ    ;; safety gate respected
+
+  ;; Beam tuning theorems (from 𝔸5.1 ⟦Θ:Proofs⟧)
+  ⊢ cfg.K↑ ⇒ 𝔼[μ_f(search(cfg.K))] ↑   ;; wider beam → better fitness
+  ⊢ cfg.τ↓ ⇒ |B_out| ↓                  ;; tighter risk → fewer beams survive
+  ⊢ cfg.τ↑ ∧ cfg.K↑ ⇒ latency↑         ;; tradeoff warning
+
+  ;; Binding
+  Δ⊗λ(Pre, Post) ≡ 3
+}
+
+;; ─── Χ: ERRORS ───
+⟦Χ:Errors⟧{
+  ε_empty_s  ≜ ⟨|s|≡0,               prompt("Non-empty requirement string required")⟩
+  ε_bad_K    ≜ ⟨cfg.K < 1,            λc. c⟨K≔K_default⟩⟩
+  ε_bad_τ    ≜ ⟨cfg.τ ∉ ℝ[0,1],       λc. c⟨τ≔τ_default⟩⟩
+  ε_no_beam  ≜ ⟨B≡∅,                  bridge(ψ_*)⟩         ;; from ε_dead
+  ε_all_risk ≜ ⟨∀b∈B:μ_r(b)>cfg.τ,   τ'←cfg.τ+δ⟩         ;; from ε_risk
+  ε_ambig    ≜ ⟨ambig(r)≥0.10,        reject∧clarify⟩
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+  δ≜0.74
+  τ≜◊⁺
+  sig≔𝕊×BeamCfg→Maybe⟨List⟨EarsReq⟩⟩
+  Pre≔(𝕊×BeamCfg)→𝔹
+  Post≔List⟨EarsReq⟩→𝔹
+  bind≔Δ⊗λ≡3
+  beam_params≔⟨K:Fin 20,τ:ℝ[0,1]⟩
+  defaults≔⟨K≔5,τ≔0.8⟩
+  out_format≔AISP
+  ⊢search-safe:∀b∈B:μ_r(b)≤cfg.τ
+  ⊢beam-optimal:𝔼[μ_f(search(K))]≥𝔼[μ_f(greedy)]
+⟩
